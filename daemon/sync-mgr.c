@@ -2214,7 +2214,7 @@ handle_locked_file_delete (SeafRepo *repo, struct index_state *istate,
     }
 
     if (file_exists && st.st_mtime == locked->old_mtime)
-        g_unlink (fullpath);
+        seaf_util_unlink (fullpath);
 
 out:
     /* Remove the locked file record from db. */
