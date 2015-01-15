@@ -2561,7 +2561,7 @@ checkout_empty_dir (const char *worktree,
     if (!path)
         return FETCH_CHECKOUT_FAILED;
 
-    if (!g_file_test (path, G_FILE_TEST_EXISTS) && seaf_util_mkdir (path, 0777) < 0) {
+    if (seaf_util_exists (path) && seaf_util_mkdir (path, 0777) < 0) {
         g_warning ("Failed to create empty dir %s in checkout.\n", path);
         g_free (path);
         return FETCH_CHECKOUT_FAILED;
@@ -2712,7 +2712,7 @@ do_rename_in_worktree (DiffEntry *de, const char *worktree,
 
     old_path = g_build_filename (worktree, de->name, NULL);
 
-    if (g_file_test (old_path, G_FILE_TEST_EXISTS)) {
+    if (seaf_util_exists (old_path)) {
 #ifndef __linux__
         new_path = build_case_conflict_free_path (worktree, de->new_name,
                                                   conflict_hash, no_conflict_hash,
@@ -4805,8 +4805,6 @@ GList *seaf_repo_load_ignore_files (const char *worktree)
 
     full_path = g_build_path (PATH_SEPERATOR, worktree,
                               IGNORE_FILE, NULL);
-    if (g_access (full_path, F_OK) < 0)
-        goto error;
     if (seaf_stat (full_path, &st) < 0)
         goto error;
     if (!S_ISREG(st.st_mode))

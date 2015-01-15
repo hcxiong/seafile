@@ -93,6 +93,9 @@ seaf_util_create (const char *path, int flags, mode_t mode);
 int
 seaf_util_rename (const char *oldpath, const char *newpath);
 
+gboolean
+seaf_util_exists (const char *path);
+
 #ifdef WIN32
 
 typedef int (*DirentCallback) (wchar_t *parent,

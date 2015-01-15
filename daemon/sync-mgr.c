@@ -2140,7 +2140,7 @@ handle_locked_file_update (SeafRepo *repo, struct index_state *istate,
 
     fullpath = g_build_filename (repo->worktree, path, NULL);
 
-    file_exists = g_file_test (fullpath, G_FILE_TEST_EXISTS);
+    file_exists = seaf_util_exists (fullpath);
 
     if (file_exists && seaf_stat (fullpath, &st) < 0) {
         seaf_warning ("Failed to stat %s: %s.\n", fullpath, strerror(errno));
@@ -2206,7 +2206,7 @@ handle_locked_file_delete (SeafRepo *repo, struct index_state *istate,
 
     fullpath = g_build_filename (repo->worktree, path, NULL);
 
-    file_exists = g_file_test (fullpath, G_FILE_TEST_EXISTS);
+    file_exists = seaf_util_exists (fullpath);
 
     if (file_exists && seaf_stat (fullpath, &st) < 0) {
         seaf_warning ("Failed to stat %s: %s.\n", fullpath, strerror(errno));

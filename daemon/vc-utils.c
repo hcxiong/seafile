@@ -520,7 +520,7 @@ gen_case_conflict_free_dname (const char *dir_path, const char *dname)
                              dir_path, copy, cnt);
         }
 
-        if (g_access (buf->str, F_OK) != 0)
+        if (!seaf_util_exists (buf->str))
             break;
 
         g_string_truncate (buf, 0);

@@ -611,6 +611,24 @@ seaf_util_rename (const char *oldpath, const char *newpath)
 #endif
 }
 
+gboolean
+seaf_util_exists (const char *path)
+{
+#ifdef WIN32
+    wchar_t *wpath = win32_long_path (path);
+    DWORD attrs;
+    gboolean ret;
+
+    attrs = GetFileAttributes (wpath);
+    ret = (attrs != INVALID_FILE_ATTRIBUTES);
+
+    g_free (wpath);
+    return ret;
+#else
+    return (access (path, F_OK) == 0);
+#endif
+}
+
 #ifdef WIN32
 
 int
