@@ -843,6 +843,7 @@ typedef struct AddParams {
 typedef struct IterCBData {
     AddParams *add_params;
     const char *parent;
+    const char *full_parent;
     int n;
 } IterCBData;
 
@@ -864,7 +865,7 @@ iter_dir_cb (wchar_t *full_parent_w,
 
     dname = g_utf16_to_utf8 (fdata->cFileName, -1, NULL, NULL, NULL);
 
-    if (should_ignore(data->parent, dname, params->ignore_list))
+    if (should_ignore(data->full_parent, dname, params->ignore_list))
         goto out;
 
     path = g_build_path ("/", data->parent, dname, NULL);
@@ -908,6 +909,7 @@ add_dir_recursive (const char *path, const char *full_path, SeafStat *st,
     memset (&data, 0, sizeof(data));
     data.add_params = params;
     data.parent = path;
+    data.full_parent = full_path;
 
     full_path_w = win32_long_path (full_path);
     ret = traverse_directory_win32 (full_path_w, iter_dir_cb, &data);
@@ -1022,7 +1024,8 @@ is_empty_dir (const char *path, GList *ignore_list)
         if (!should_ignore (path, dname, ignore_list)) {
             ret = FALSE;
             g_free (dname);
-            break;
+            FindClose (handle);
+            goto out;
         }
         g_free (dname);
     } while (FindNextFileW (handle, &fdata) != 0);
@@ -2561,7 +2564,7 @@ checkout_empty_dir (const char *worktree,
     if (!path)
         return FETCH_CHECKOUT_FAILED;
 
-    if (seaf_util_exists (path) && seaf_util_mkdir (path, 0777) < 0) {
+    if (!seaf_util_exists (path) && seaf_util_mkdir (path, 0777) < 0) {
         g_warning ("Failed to create empty dir %s in checkout.\n", path);
         g_free (path);
         return FETCH_CHECKOUT_FAILED;
@@ -2773,7 +2776,7 @@ delete_worktree_dir_recursive_win32 (const char *worktree,
 
         sub_path_w = g_new0 (wchar_t, path_len_w + wcslen(fdata.cFileName) + 2);
         wcscpy (sub_path_w, path_w);
-        wcscat (sub_path_w, L"/");
+        wcscat (sub_path_w, L"\\");
         wcscat (sub_path_w, fdata.cFileName);
 
         if (fdata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -2872,8 +2875,7 @@ delete_worktree_dir (const char *worktree, const char *path)
     char *full_path = g_build_path ("/", worktree, path, NULL);
 
 #ifdef WIN32
-    wchar_t *full_path_w = g_utf8_to_utf16 (full_path, -1,
-                                            NULL, NULL, NULL);
+    wchar_t *full_path_w = win32_long_path (full_path);
     delete_worktree_dir_recursive_win32 (worktree, full_path_w);
     g_free (full_path_w);
 #else
@@ -4852,7 +4854,7 @@ seaf_repo_check_ignore_file (GList *ignore_list, const char *fullpath)
     /* first check the path is a reg file or a dir */
     if (seaf_stat(str, &st) < 0) {
         g_free(str);
-        return TRUE;
+        return FALSE;
     }
     if (S_ISDIR(st.st_mode)) {
         g_free(str);

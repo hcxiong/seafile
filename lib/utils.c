@@ -211,38 +211,6 @@ file_time_to_unix_time (FILETIME *ftime)
 }
 
 static int
-get_utc_file_time (const char *path, const wchar_t *wpath,
-                   __time64_t *mtime, __time64_t *ctime)
-{
-    HANDLE handle;
-    FILETIME write_time, create_time;
-
-    handle = CreateFileW (wpath,
-                          GENERIC_READ,
-                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                          NULL,
-                          OPEN_EXISTING,
-                          FILE_FLAG_BACKUP_SEMANTICS,
-                          NULL);
-    if (handle == INVALID_HANDLE_VALUE) {
-        g_warning ("Failed to open %s: %lu.\n", path, GetLastError());
-        return -1;
-    }
-
-    if (!GetFileTime (handle, &create_time, NULL, &write_time)) {
-        g_warning ("Failed to get file time for %s: %lu.\n", path, GetLastError());
-        CloseHandle (handle);
-        return -1;
-    }
-    CloseHandle (handle);
-
-    *mtime = file_time_to_unix_time (&write_time);
-    *ctime = file_time_to_unix_time (&create_time);
-
-    return 0;
-}
-
-static int
 get_utc_file_time_fd (int fd, __time64_t *mtime, __time64_t *ctime)
 {
     HANDLE handle;
@@ -398,7 +366,7 @@ seaf_set_file_time (const char *path, guint64 mtime)
 
     return utime (path, &times);
 #else
-    wchar_t *wpath = g_utf8_to_utf16 (path, -1, NULL, NULL, NULL);
+    wchar_t *wpath = win32_long_path (path);
     int ret = 0;
 
     if (set_utc_file_time (path, wpath, mtime) < 0)
@@ -511,18 +479,13 @@ seaf_util_open (const char *path, int flags)
 {
 #ifdef WIN32
     wchar_t *wpath;
-    DWORD access;
+    DWORD access = 0;
     HANDLE handle;
     int fd;
 
-    if (flags & O_RDONLY)
-        access = GENERIC_READ;
-    else if (flags & O_WRONLY)
-        access = GENERIC_WRITE;
-    else {
-        errno = EINVAL;
-        return -1;
-    }
+    access |= GENERIC_READ;
+    if (flags & (O_WRONLY | O_RDWR))
+        access |= GENERIC_WRITE;
 
     wpath = win32_long_path (path);
 
@@ -553,18 +516,13 @@ seaf_util_create (const char *path, int flags, mode_t mode)
 {
 #ifdef WIN32
     wchar_t *wpath;
-    DWORD access;
+    DWORD access = 0;
     HANDLE handle;
     int fd;
 
-    if (flags & O_RDONLY)
-        access = GENERIC_READ;
-    else if (flags & O_WRONLY)
-        access = GENERIC_WRITE;
-    else {
-        errno = EINVAL;
-        return -1;
-    }
+    access |= GENERIC_READ;
+    if (flags & (O_WRONLY | O_RDWR))
+        access |= GENERIC_WRITE;
 
     wpath = win32_long_path (path);
 
@@ -619,7 +577,7 @@ seaf_util_exists (const char *path)
     DWORD attrs;
     gboolean ret;
 
-    attrs = GetFileAttributes (wpath);
+    attrs = GetFileAttributesW (wpath);
     ret = (attrs != INVALID_FILE_ATTRIBUTES);
 
     g_free (wpath);
@@ -672,8 +630,10 @@ traverse_directory_win32 (wchar_t *path_w,
             FindClose (handle);
             goto out;
         }
-        if (stop)
-            break;
+        if (stop) {
+            FindClose (handle);
+            goto out;
+        }
     } while (FindNextFileW (handle, &fdata) != 0);
 
     error = GetLastError();
